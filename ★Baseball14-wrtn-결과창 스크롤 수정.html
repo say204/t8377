@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>두뇌 발달 숫자 야구</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .game-container {
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .keypad button {
+            background-color: #ffffff;
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: black;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .keypad button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .control-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            flex: 1;
+            margin: 0 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .undo-button {
+            background-color: #f44336; /* 빨간색 계통 */
+            color: white;
+        }
+
+        .undo-button:hover {
+            background-color: #d32f2f;
+        }
+
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            text-align: left;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+        }
+
+        .log p {
+            font-size: 28px; /* 시도 결과 글자 크기 증가 */
+            margin: 5px 0;
+        }
+
+        #timer {
+            margin-top: 10px;
+            font-size: 1.2em;
+            color: #555;
+        }
+
+        #rankingForm {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #rankingForm input {
+            padding: 10px;
+            margin-top: 10px;
+            width: 100%;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        #rankings {
+            margin-top: 20px;
+            text-align: left;
+            font-size: 24px; /* 랭킹 제목 글자 크기 설정 (2배) */
+        }
+
+        #rankingList {
+            font-size: 16px; /* 랭킹 리스트 글자 크기 설정 (2배) */
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #rankingList th, #rankingList td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        #rankingList th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5em;
+            }
+
+            button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1>두뇌 발달 숫자 야구</h1>
+        <p>자릿수를 선택하세요:</p>
+        <select id="digitCount">
+            <option value="3">3자리</option>
+            <option value="4">4자리</option>
+            <option value="5">5자리</option>
+            <option value="6">6자리</option>
+        </select>
+        <br><br>
+        <p>숫자를 선택하세요:</p>
+        <div class="keypad" id="keypad"></div>
+        <p>선택한 숫자: <span id="userSelection"></span></p>
+        <div class="control-buttons">
+            <button onclick="startGame()">게임 시작</button>
+            <button onclick="playGame()" id="guessBtn" disabled>확인</button>
+            <button class="undo-button" onclick="undoSelection()">되돌리기</button>
+        </div>
+        <div id="timer">시간: 00:00</div>
+        <div class="log" id="log"></div>
+
+        <div id="rankingForm">
+    <p>축하합니다. 기록 경신!!</p>
+    <p>현재 기록: <span id="currentRecord"></span></p>
+    <input type="text" id="nameInput" placeholder="이름을 입력하세요" />
+    <button onclick="saveRanking()">랭킹 저장</button>
+</div>
+
+<div id="rankings">
+    <h3>랭킹</h3>
+    <table id="rankingList">
+        <tr>
+            <th>순위</th>
+            <th>이름</th>
+            <th>기록</th>
+        </tr>
+    </table>
+</div>
+    <script>
+        let answer = '';
+        let attempts = 0;
+        let digitCount = 3;
+        let timerInterval;
+        let startTime;
+        let selectedNumbers = [];
+
+        // 숫자 버튼을 화면에 출력
+        function generateKeypad() {
+            const keypad = document.getElementById('keypad');
+            keypad.innerHTML = '';
+            const numbers = [
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9],
+                [null, 0, null]
+            ];
+
+            numbers.forEach(row => {
+                row.forEach(num => {
+                    const button = document.createElement('button');
+                    if (num !== null) {
+                        button.textContent = num;
+                        button.onclick = () => selectNumber(num, button);
+                    } else {
+                        button.style.visibility = 'hidden'; // 숨김 처리
+                    }
+                    keypad.appendChild(button);
+                });
+            });
+        }
+
+        // 숫자 선택
+        function selectNumber(number, button) {
+            if (selectedNumbers.length >= digitCount) {
+                alert(`최대 ${digitCount}자리까지 선택 가능합니다.`);
+                return;
+            }
+
+            if (selectedNumbers.includes(number)) {
+                alert("같은 숫자를 중복해서 선택할 수 없습니다.");
+                return;
+            }
+
+            selectedNumbers.push(number);
+            button.classList.add('active');
+            document.getElementById('userSelection').textContent = selectedNumbers.join('');
+        }
+
+        // 되돌리기 기능
+        function undoSelection() {
+            if (selectedNumbers.length > 0) {
+                selectedNumbers.pop();
+                document.getElementById('userSelection').textContent = selectedNumbers.join('');
+                generateKeypad(); // 키패드 갱신
+            }
+        }
+
+        // 게임 시작
+        function startGame() {
+            digitCount = parseInt(document.getElementById('digitCount').value);
+            answer = generateAnswer(digitCount);
+            attempts = 0;
+            selectedNumbers = [];
+            document.getElementById('userSelection').textContent = '';
+            document.getElementById('guessBtn').disabled = false;
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('rankingForm').style.display = 'none'; // 랭킹 폼 숨기기
+            generateKeypad();
+            startTimer();
+            displayRankings(); // 기존 랭킹 표시
+        }
+
+        // 타이머 시작
+        function startTimer() {
+            clearInterval(timerInterval);
+            startTime = new Date();
+            timerInterval = setInterval(() => {
+                const now = new Date();
+                const elapsedTime = Math.floor((now - startTime) / 1000);
+                const minutes = String(Math.floor(elapsedTime / 60)).padStart(2, '0');
+                const seconds =
+                String(elapsedTime % 60).padStart(2, '0');
+                document.getElementById('timer').innerText = `시간: ${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        // 랜덤으로 n자리 숫자 생성
+        function generateAnswer(digitCount) {
+            let digits = [];
+            while (digits.length < digitCount) {
+                let randomNumber = Math.floor(Math.random() * 10);
+                if (!digits.includes(randomNumber)) {
+                    digits.push(randomNumber);
+                }
+            }
+            return digits.join('');
+        }
+
+        // 게임 진행
+function playGame() {
+    if (selectedNumbers.length !== digitCount) {
+        alert(`${digitCount}자리 숫자를 선택하세요.`);
+        return;
+    }
+
+    const userInput = selectedNumbers.join('');
+    const logElement = document.getElementById('log');
+
+    const result = checkGuess(userInput);
+    logElement.innerHTML += `<p>${userInput} → ${result}</p>`;
+    selectedNumbers = [];
+    document.getElementById('userSelection').textContent = '';
+    generateKeypad(); // 선택 초기화
+
+    // 스크롤을 맨 아래로 이동
+    logElement.scrollTop = logElement.scrollHeight;
+
+    if (result === `${digitCount}S 0B`) {
+        clearInterval(timerInterval);
+        const elapsedTime = document.getElementById('timer').innerText.split(' ')[1];
+        document.getElementById('currentRecord').textContent = `시간: ${elapsedTime}`;
+        document.getElementById('rankingForm').style.display = 'block'; // 랭킹 폼 보이기
+    }
+}
+
+        // 스트라이크와 볼을 계산
+        function checkGuess(guess) {
+            let strike = 0;
+            let ball = 0;
+
+            for (let i = 0; i < digitCount; i++) {
+                if (guess[i] === answer[i]) {
+                    strike++;
+                } else if (answer.includes(guess[i])) {
+                    ball++;
+                }
+            }
+            return `${strike}S ${ball}B`;
+        }
+
+// 랭킹 저장
+function saveRanking() {
+    const name = document.getElementById('nameInput').value;
+
+    if (!name) {
+        alert("이름을 입력하세요.");
+        return;
+    }
+
+    const rankingKey = `ranking_${digitCount}`;
+    let rankings = JSON.parse(localStorage.getItem(rankingKey)) || [];
+    const currentTime = document.getElementById('currentRecord').textContent.split(': ')[1];
+
+    console.log('현재 기록:', currentTime); // 추가된 디버깅 로그
+
+    rankings.push({ name, time: currentTime });
+
+    rankings.sort((a, b) => {
+        const timeA = convertTimeToSeconds(a.time);
+        const timeB = convertTimeToSeconds(b.time);
+        return timeA - timeB;
+    });
+
+    rankings = rankings.slice(0, 10);
+    localStorage.setItem(rankingKey, JSON.stringify(rankings));
+
+    console.log('저장된 랭킹:', rankings); // 추가된 디버깅 로그
+    displayRankings();
+    document.getElementById('rankingForm').style.display = 'none';
+}
+// 랭킹 표시
+function displayRankings() {
+    const rankingKey = `ranking_${digitCount}`;
+    let rankings = JSON.parse(localStorage.getItem(rankingKey)) || [];
+    let rankingList = document.getElementById('rankingList');
+    rankingList.innerHTML = ''; // 초기화
+
+    console.log('현재 랭킹:', rankings); // 추가된 디버깅 로그
+
+    rankings.forEach((entry, index) => {
+        rankingList.innerHTML += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${entry.name}</td>
+                <td>${entry.time}</td>
+            </tr>
+        `;
+    });
+}
+// 시간을 초로 변환
+function convertTimeToSeconds(time) {
+    const parts = time.split(':').map(Number);
+    if (parts.length !== 2 || parts.some(isNaN)) {
+        console.error("잘못된 시간 형식:", time);
+        return Infinity; // 잘못된 값일 경우 큰 수 반환
+    }
+    const [minutes, seconds] = parts;
+    return minutes * 60 + seconds;
+}
+// 초기화
+window.onload = function() {
+    generateKeypad();
+    displayRankings(); // 페이지 로드 시 랭킹 표시
+};
+    </script>
+
+</body>
+</html>
